@@ -107,9 +107,10 @@ class Dispatcher extends DispatcherCore
 		),
 		'category_rule' => array(
 			'controller' =>	'category',
-			'rule' =>		'{rewrite}/',
+			'rule' =>		'{categories:/}{rewrite}/',
 			'keywords' => array(
 				'id' =>				array('regexp' => '[0-9]+'),
+				'categories' =>		array('regexp' => '[/_a-zA-Z0-9-\pL]*', 'param' => 'categories_rewrite'),
 				'rewrite' =>		array('regexp' => '[_a-zA-Z0-9-\pL]*', 'param' => 'category_rewrite'),
 				'meta_keywords' =>	array('regexp' => '[_a-zA-Z0-9-\pL]*'),
 				'meta_title' =>		array('regexp' => '[_a-zA-Z0-9-\pL]*'),
@@ -120,13 +121,25 @@ class Dispatcher extends DispatcherCore
 	/**
 	 * Load default routes group by languages
 	 */
-	protected function loadRoutes()
+	protected function loadRoutes($id_shop = null)
 	{
 		$context = Context::getContext();
 		
+		// Load custom routes from modules
+		$modules_routes = Hook::exec('moduleRoutes', array('id_shop' => $id_shop), null, true, false);
+		if (is_array($modules_routes) && count($modules_routes))
+			foreach($modules_routes as $module_route)
+				foreach($module_route as $route => $route_details)
+					if (array_key_exists('controller', $route_details) && array_key_exists('rule', $route_details) 
+						&& array_key_exists('keywords', $route_details) && array_key_exists('params', $route_details))
+					{
+						if (!isset($this->default_routes[$route]))
+						$this->default_routes[$route] = array();
+						$this->default_routes[$route] = array_merge($this->default_routes[$route], $route_details);
+					}
+		
 		// Set default routes
-		//new edit by Ha!*!*y :: Select only active languages
-		foreach (Language::getLanguages(TRUE) as $lang)
+		foreach (Language::getLanguages() as $lang)
 			foreach ($this->default_routes as $id => $route)
 				$this->addRoute(
 					$id,
@@ -134,9 +147,11 @@ class Dispatcher extends DispatcherCore
 					$route['controller'],
 					$lang['id_lang'],
 					$route['keywords'],
-					isset($route['params']) ? $route['params'] : array()
+					isset($route['params']) ? $route['params'] : array(),
+					$id_shop
 				);
-
+		
+		// Load the custom routes prior the defaults to avoid infinite loops
 		if ($this->use_routes)
 		{
 			// Get iso lang
@@ -148,13 +163,13 @@ class Dispatcher extends DispatcherCore
 			// Load routes from meta table
 			$sql = 'SELECT m.page, ml.url_rewrite, ml.id_lang
 					FROM `'._DB_PREFIX_.'meta` m
-					LEFT JOIN `'._DB_PREFIX_.'meta_lang` ml ON (m.id_meta = ml.id_meta'.Shop::addSqlRestrictionOnLang('ml').')
+					LEFT JOIN `'._DB_PREFIX_.'meta_lang` ml ON (m.id_meta = ml.id_meta'.Shop::addSqlRestrictionOnLang('ml', $id_shop).')
 					ORDER BY LENGTH(ml.url_rewrite) DESC';
 			if ($results = Db::getInstance()->executeS($sql))
 				foreach ($results as $row)
 				{
 					if ($row['url_rewrite'])
-						$this->addRoute($row['page'], $row['url_rewrite'], $row['page'], $row['id_lang']);
+						$this->addRoute($row['page'], $row['url_rewrite'], $row['page'], $row['id_lang'], array(), array(), $id_shop);
 				}
 
 			// Set default empty route if no empty route (that's weird I know)
@@ -167,7 +182,7 @@ class Dispatcher extends DispatcherCore
 
 			// Load custom routes
 			foreach ($this->default_routes as $route_id => $route_data)
-				if ($custom_route = Configuration::get('PS_ROUTE_'.$route_id))
+				if ($custom_route = Configuration::get('PS_ROUTE_'.$route_id, null, null, $id_shop))
 					foreach (Language::getLanguages() as $lang)
 						$this->addRoute(
 							$route_id,
@@ -175,7 +190,8 @@ class Dispatcher extends DispatcherCore
 							$route_data['controller'],
 							$lang['id_lang'],
 							$route_data['keywords'],
-							isset($route_data['params']) ? $route_data['params'] : array()
+							isset($route_data['params']) ? $route_data['params'] : array(),
+							$id_shop
 						);
 		}
 	}
