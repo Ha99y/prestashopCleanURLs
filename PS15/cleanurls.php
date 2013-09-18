@@ -24,7 +24,8 @@ class cleanurls extends Module
 	{
 		$this->name = 'cleanurls';
 		$this->tab = 'seo';
-		$this->version = '0.3.1';
+		$this->version = '0.42';
+		$this->need_instance = 0;
 		$this->author = 'ha!*!*y';
 
 		parent::__construct();
@@ -35,12 +36,30 @@ class cleanurls extends Module
 
 	public function getContent()
 	{
-		$output = 'You need to fix duplicate URL entries<br/>';
+		$output = '';
 
-		$sql = 'SELECT * FROM `'._DB_PREFIX_.'product_lang` WHERE `link_rewrite` in (SELECT `link_rewrite` FROM `'._DB_PREFIX_.'product_lang` GROUP BY `link_rewrite`, `id_lang` HAVING count(`link_rewrite`) > 1)';
+		if (Tools::isSubmit('submitCleanURLS'))
+		{
+			
+		}
+
+		//Advanced Parameters > Performance > Clear Smarty cache 
+		//On some versions you have to disable Cache save than open your shop home page than go back and enable it.<br/><br/>';
+
+		$sql = 'SELECT * FROM `'._DB_PREFIX_.'product_lang`
+				WHERE `link_rewrite`
+					IN (SELECT `link_rewrite` FROM `'._DB_PREFIX_.'product_lang`
+					GROUP BY `link_rewrite`, `id_lang`
+					HAVING count(`link_rewrite`) > 1)';
+
+		if (Shop::isFeatureActive() && Shop::getContext() == Shop::CONTEXT_SHOP)
+		{
+			$sql .= ' AND `id_shop` = '.(int)Shop::getContextShopID();
+		}
 
 		if ($results = Db::getInstance()->ExecuteS($sql))
 		{
+			$output .= 'You need to fix duplicate URL entries<br/>';
 			foreach ($results AS $row)
 			{
 				$output .= $row['name'].' ('.$row['id_product'] .') - '. $row['link_rewrite'].'<br/>';
@@ -48,7 +67,7 @@ class cleanurls extends Module
 		}
 		else
 		{
-			$output = 'Nice you don\'t have any duplicate URL entries.';
+			$output .= 'Nice you don\'t have any duplicate URL entries.';
 		}
 
 		return $output;
@@ -56,6 +75,14 @@ class cleanurls extends Module
 
 	public function install()
 	{
+		// add link_rewrite as index to improve search
+		$table_list = array('category_lang','cms_category_lang','cms_lang','product_lang');
+		foreach($table_list as $table)
+		{
+			if(!Db::getInstance()->ExecuteS('SHOW INDEX FROM `'._DB_PREFIX_.$table.'` WHERE Key_name = \'link_rewrite\''))
+				Db::getInstance()->Execute('ALTER TABLE `'._DB_PREFIX_.$table.'` ADD INDEX ( `link_rewrite` )');
+		}
+
 		if (!parent::install())
 			return false;
 		return true;
