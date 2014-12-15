@@ -31,16 +31,16 @@ class ManufacturerController extends ManufacturerControllerCore
 			// DB for link_rewrite for manufacturers
 			// Should we use the Mysql FullText Index Search ??
 			//
-			$sql = 'SELECT m.`id_manufacturer`
+			$sql = 'SELECT m.`id_manufacturer` 
 				FROM `'._DB_PREFIX_.'manufacturer` m
 				LEFT JOIN `'._DB_PREFIX_.'manufacturer_shop` s ON (m.`id_manufacturer` = s.`id_manufacturer`)
-				WHERE m.`name` LIKE \''.$name_manufacturer.'\'';
+				WHERE REPLACE(m.`name`,"&","") LIKE \''.$name_manufacturer.'\'';
 
 			if (Shop::isFeatureActive() && Shop::getContext() == Shop::CONTEXT_SHOP)
 			{
 				$sql .= ' AND s.`id_shop` = '.(int)Shop::getContextShopID();
 			}
-
+			
 			$id_manufacturer = Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue($sql);
 
 			if($id_manufacturer > 0)
