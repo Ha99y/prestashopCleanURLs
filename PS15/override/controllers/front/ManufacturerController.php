@@ -31,7 +31,7 @@ class ManufacturerController extends ManufacturerControllerCore
 			// DB for link_rewrite for manufacturers
 			// Should we use the Mysql FullText Index Search ??
 			//
-			$sql = 'SELECT m.`id_manufacturer`, REPLACE(m.`name`,'&','') as manufacturer_name
+			$sql = 'SELECT m.`id_manufacturer`, REPLACE(m.`name`,"&","") as manufacturer_name
 				FROM `'._DB_PREFIX_.'manufacturer` m
 				LEFT JOIN `'._DB_PREFIX_.'manufacturer_shop` s ON (m.`id_manufacturer` = s.`id_manufacturer`)
 				WHERE manufacturer_name LIKE \''.$name_manufacturer.'\'';
